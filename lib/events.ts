@@ -38,8 +38,12 @@ export async function createEvent(
     {
       event_code: event.eventId,
       title: event.title,
-      start_time: event.start || null,
-      end_time: event.end || null,
+     start_time: event.start
+  ? new Date(event.start).toISOString()
+  : null,
+end_time: event.end
+  ? new Date(event.end).toISOString()
+  : null,
       venue: event.venue?.trim() || null,
       description: event.description?.trim() || null,
       status: event.status ?? 'open',
@@ -113,12 +117,16 @@ export async function updateEvent(
       ...(updates.title !== undefined && {
         title: updates.title.trim(),
       }),
-      ...(updates.start !== undefined && {
-        start_time: updates.start || null,
-      }),
-      ...(updates.end !== undefined && {
-        end_time: updates.end || null,
-      }),
+     ...(updates.start !== undefined && {
+  start_time: updates.start
+    ? new Date(updates.start).toISOString()
+    : null,
+}),
+     ...(updates.end !== undefined && {
+  end_time: updates.end
+    ? new Date(updates.end).toISOString()
+    : null,
+}),
       ...(updates.venue !== undefined && {
         venue: updates.venue.trim() || null,
       }),

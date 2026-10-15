@@ -1,10 +1,11 @@
+
 {
   "expo": {
     "name": "QR-ATT",
     "slug": "QR-ATT",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/qratt-icon-final.png",
     "scheme": "qr-attendance",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -13,10 +14,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#651D32",
-        "foregroundImage": "./assets/images/icon.png",
-        "backgroundImage": "./assets/images/icon.png",
-        "monochromeImage": "./assets/images/icon.png"
+        "backgroundColor": "#2563EB",
+        "foregroundImage": "./assets/images/qratt-icon-final.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,

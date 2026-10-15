@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import type { Session, User } from '@supabase/supabase-js';
@@ -11,7 +12,8 @@ type AuthState = {
 let globalSession: Session | null = null;
 let globalUser: User | null = null;
 let globalLoading = true;
-let listeners: Set<() => void> = new Set();
+
+const listeners = new Set<() => void>();
 
 function notify() {
   listeners.forEach((listener) => listener());
@@ -28,21 +30,48 @@ let initialized = false;
 
 async function initializeAuth() {
   if (initialized) return;
-
   initialized = true;
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
-  updateAuthState(session);
+  try {
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error('Session initialization timed out'));
+      }, 10000);
+    });
+
+    const result = await Promise.race([
+      supabase.auth.getSession(),
+      timeoutPromise,
+    ]);
+
+    if (result.error) {
+      console.error('Could not restore session:', result.error.message);
+      updateAuthState(null);
+      return;
+    }
+
+    updateAuthState(result.data.session);
+  } catch (error) {
+    console.error('Auth initialization failed:', error);
+    updateAuthState(null);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+
+    // Make sure the loading screen can close.
+    if (globalLoading) {
+      globalLoading = false;
+      notify();
+    }
+  }
 }
-
-initializeAuth();
 
 supabase.auth.onAuthStateChange((_event, session) => {
   updateAuthState(session);
 });
+
+void initializeAuth();
 
 export function setAuth(session: Session | null) {
   updateAuthState(session);
@@ -84,17 +113,12 @@ export async function signUp(
     email,
     password,
     options: {
-      // A profile-creation trigger can use this metadata even when email
-      // confirmation means the new user has no active session yet.
       data: {
         full_name: profile?.full_name?.trim() ?? '',
         role: 'student',
       },
     },
   });
-
-  // Public sign-up must never assign elevated roles. The database trigger/RLS
-  // should create a student profile from auth metadata; do not update role here.
 
   if (!error && data.session) {
     updateAuthState(data.session);
@@ -123,7 +147,9 @@ export async function signIn(
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
 
-  updateAuthState(null);
+  if (!error) {
+    updateAuthState(null);
+  }
 
   return { error };
 }

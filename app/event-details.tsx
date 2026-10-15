@@ -1,3 +1,4 @@
+
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
@@ -9,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import QRCode from 'react-native-qrcode-svg';
 
 import AppButton from '@/components/AppButton';
 import Header from '@/components/Header';
@@ -23,26 +25,42 @@ export default function EventDetails() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadEvent = async () => {
       if (!eventId) {
-        setLoading(false);
+        if (isMounted) setLoading(false);
         return;
       }
 
-      const { data, error } = await supabase
-        .from('events')
-        .select('*')
-        .eq('id', eventId)
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .select('*')
+          .eq('id', eventId)
+          .maybeSingle();
 
-      if (!error && data) {
-        setEvent(data as CloudEvent);
+        if (error) {
+          console.error('Error loading event:', error.message);
+        }
+
+        if (isMounted) {
+          setEvent(data ? (data as CloudEvent) : null);
+        }
+      } catch (error) {
+        console.error('Unexpected error loading event:', error);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-
-      setLoading(false);
     };
 
     loadEvent();
+
+    return () => {
+      isMounted = false;
+    };
   }, [eventId]);
 
   const formatDateTime = (value: string | null) => {
@@ -236,6 +254,7 @@ export default function EventDetails() {
             </View>
           </View>
 
+          {/* Event QR Code */}
           <View style={styles.codeSection}>
             <View style={styles.codeHeader}>
               <Ionicons
@@ -244,10 +263,29 @@ export default function EventDetails() {
                 color={COLORS.accent}
               />
 
-              <Text style={styles.detailLabel}>EVENT CODE</Text>
+              <Text style={styles.detailLabel}>EVENT QR CODE</Text>
             </View>
 
+            {event.event_code ? (
+              <View style={styles.qrContainer}>
+                <QRCode
+                  value={event.event_code}
+                  size={200}
+                  backgroundColor="#FFFFFF"
+                  color="#000000"
+                />
+              </View>
+            ) : (
+              <Text style={styles.descriptionText}>
+                No event code available.
+              </Text>
+            )}
+
             <Text style={styles.eventCode}>{event.event_code}</Text>
+
+            <Text style={styles.qrHint}>
+              Scan this QR code to identify the event.
+            </Text>
           </View>
         </View>
 
@@ -465,7 +503,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    marginBottom: 6,
+    marginBottom: 12,
+  },
+
+  qrContainer: {
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 12,
+    marginVertical: 8,
   },
 
   eventCode: {
@@ -473,6 +521,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: COLORS.textOnPrimary,
     letterSpacing: 0.8,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+
+  qrHint: {
+    fontSize: 11,
+    lineHeight: 17,
+    color: COLORS.textOnPrimary,
+    textAlign: 'center',
+    marginTop: 8,
   },
 
   scanButtonContainer: {

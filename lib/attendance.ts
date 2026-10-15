@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 import { parseQRPayload } from './qr';
 import { getEventByCode } from './events';
@@ -46,23 +47,36 @@ export async function registerAttendance(
     return { success: false, message: parsed.message };
   }
 
-  // Never trust a caller-supplied student ID. It must match the signed-in user.
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  // Verify the currently signed-in user.
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
   if (userError || !user || user.id !== studentId) {
-    return { success: false, message: 'Please sign in with your student account.' };
+    return {
+      success: false,
+      message: 'Please sign in with your student account.',
+    };
   }
 
   const profile = await getProfile(user.id);
+
   if (!profile || profile.role !== 'student') {
-    return { success: false, message: 'Only student accounts can record attendance.' };
+    return {
+      success: false,
+      message: 'Only student accounts can record attendance.',
+    };
   }
 
   const payload = parsed.payload;
   const foundEvent = await getEventByCode(payload.event);
 
-  // A QR code may refer only to an event created by a teacher/admin.
   if (!foundEvent) {
-    return { success: false, message: 'Invalid QR code. This event does not exist.' };
+    return {
+      success: false,
+      message: 'Invalid QR code. This event does not exist.',
+    };
   }
 
   if (foundEvent.status !== 'open') {
@@ -73,22 +87,64 @@ export async function registerAttendance(
     };
   }
 
-  // Use authoritative dates from the database, not dates embedded in a QR code.
+  // Validate the event timestamps returned by Supabase.
+  // Date.parse handles ISO timestamps with UTC offsets correctly.
   const now = Date.now();
-  const start = foundEvent.start_time ? new Date(foundEvent.start_time).getTime() : null;
-  const end = foundEvent.end_time ? new Date(foundEvent.end_time).getTime() : null;
 
-  if (start !== null && Number.isFinite(start) && now < start) {
-    return { success: false, message: 'Event has not started yet.', eventTitle: foundEvent.title };
+  const start =
+    foundEvent.start_time != null
+      ? Date.parse(foundEvent.start_time)
+      : null;
+
+  const end =
+    foundEvent.end_time != null
+      ? Date.parse(foundEvent.end_time)
+      : null;
+      console.log('Event:', foundEvent.title);
+console.log('Start time:', foundEvent.start_time);
+console.log('End time:', foundEvent.end_time);
+console.log('Current time:', new Date().toString());
+console.log('Parsed start:', start);
+console.log('Parsed end:', end);
+      
+
+  if (start !== null && !Number.isFinite(start)) {
+    return {
+      success: false,
+      message: 'Invalid event start time. Please contact your teacher.',
+      eventTitle: foundEvent.title,
+    };
   }
 
-  if (end !== null && Number.isFinite(end) && now > end) {
-    return { success: false, message: 'Event has already ended.', eventTitle: foundEvent.title };
+  if (end !== null && !Number.isFinite(end)) {
+    return {
+      success: false,
+      message: 'Invalid event end time. Please contact your teacher.',
+      eventTitle: foundEvent.title,
+    };
   }
 
-  // Friendly pre-check; a database unique constraint is still required to
-  // protect against simultaneous scans from multiple requests/devices.
-  const { data: existingAttendance, error: existingError } = await supabase
+  if (start !== null && now < start) {
+    return {
+      success: false,
+      message: 'Event has not started yet.',
+      eventTitle: foundEvent.title,
+    };
+  }
+
+  if (end !== null && now > end) {
+    return {
+      success: false,
+      message: 'Event has already ended.',
+      eventTitle: foundEvent.title,
+    };
+  }
+
+  // Check whether the student already recorded attendance.
+  const {
+    data: existingAttendance,
+    error: existingError,
+  } = await supabase
     .from('attendance')
     .select('id')
     .eq('student_id', user.id)
@@ -96,8 +152,12 @@ export async function registerAttendance(
     .maybeSingle();
 
   if (existingError) {
-    return { success: false, message: 'Could not verify attendance. Please try again.' };
+    return {
+      success: false,
+      message: 'Could not verify attendance. Please try again.',
+    };
   }
+
   if (existingAttendance) {
     return {
       success: false,
@@ -106,13 +166,16 @@ export async function registerAttendance(
     };
   }
 
-  const { error: attError } = await supabase.from('attendance').insert([
-    {
-      student_id: user.id,
-      event_id: foundEvent.id,
-      status: 'present',
-    },
-  ]);
+  // Record attendance.
+  const { error: attError } = await supabase
+    .from('attendance')
+    .insert([
+      {
+        student_id: user.id,
+        event_id: foundEvent.id,
+        status: 'present',
+      },
+    ]);
 
   if (attError) {
     if (attError.code === '23505') {
@@ -124,10 +187,16 @@ export async function registerAttendance(
     }
 
     if (attError.code === '42501') {
-      return { success: false, message: 'You are not authorized to record attendance.' };
+      return {
+        success: false,
+        message: 'You are not authorized to record attendance.',
+      };
     }
 
-    return { success: false, message: 'Attendance could not be recorded. Please try again.' };
+    return {
+      success: false,
+      message: 'Attendance could not be recorded. Please try again.',
+    };
   }
 
   return {
@@ -167,11 +236,15 @@ export async function getTeacherEventAttendance(
     .eq('created_by', teacherId)
     .order('created_at', { ascending: false });
 
-  if (eventError || !events) return [];
+  if (eventError || !events) {
+    return [];
+  }
 
   const eventIds = events.map((e: any) => e.id);
 
-  if (eventIds.length === 0) return [];
+  if (eventIds.length === 0) {
+    return [];
+  }
 
   const { data: attendance, error: attError } = await supabase
     .from('attendance')
@@ -179,10 +252,14 @@ export async function getTeacherEventAttendance(
     .in('event_id', eventIds)
     .order('scanned_at', { ascending: false });
 
-  if (attError || !attendance) return [];
+  if (attError || !attendance) {
+    return [];
+  }
 
   return events.map((e: any) => {
-    const rows = attendance.filter((a: any) => a.event_id === e.id);
+    const rows = attendance.filter(
+      (a: any) => a.event_id === e.id
+    );
 
     return {
       eventId: e.id,
@@ -208,18 +285,24 @@ export async function getTeacherEventSummary(
     .eq('created_by', teacherId)
     .order('created_at', { ascending: false });
 
-  if (eventError || !events) return [];
+  if (eventError || !events) {
+    return [];
+  }
 
   const eventIds = events.map((e: any) => e.id);
 
-  if (eventIds.length === 0) return [];
+  if (eventIds.length === 0) {
+    return [];
+  }
 
   const { data: attRows, error: attError } = await supabase
     .from('attendance')
     .select('event_id')
     .in('event_id', eventIds);
 
-  if (attError || !attRows) return [];
+  if (attError || !attRows) {
+    return [];
+  }
 
   const counts: Record<string, number> = {};
 

@@ -26,6 +26,7 @@ import {
   createEvent,
   updateEvent,
 } from '@/lib/events';
+import QRCode from 'react-native-qrcode-svg';
 
 type UserRecord = {
   id: string;
@@ -834,22 +835,21 @@ export default function AdminScreen() {
               value={newEventStartTime}
               onChangeText={setNewEventStartTime}
               editable={!creatingEvent}
-              placeholder="2026-10-07T09:00:00"
+              placeholder="2026-10-15T18:00:00"
               placeholderTextColor={COLORS.textSecondary}
             />
 
             <Text style={styles.inputLabel}>
               End Time
             </Text>
-
-            <TextInput
-              style={styles.eventInput}
-              value={newEventEndTime}
-              onChangeText={setNewEventEndTime}
-              editable={!creatingEvent}
-              placeholder="2026-10-07T10:00:00"
-              placeholderTextColor={COLORS.textSecondary}
-            />
+<TextInput
+  style={styles.eventInput}
+  value={newEventEndTime}
+  onChangeText={setNewEventEndTime}
+  editable={!creatingEvent}
+  placeholder="2026-10-15T18:00:00"
+  placeholderTextColor={COLORS.textSecondary}
+/>
 
             <Text style={styles.inputLabel}>
               Venue
@@ -943,32 +943,30 @@ export default function AdminScreen() {
                       <Text style={styles.inputLabel}>
                         Start Time
                       </Text>
-
-                      <TextInput
-                        style={styles.eventInput}
-                        value={editStartTime}
-                        onChangeText={setEditStartTime}
-                        editable={!savingEvent}
-                        placeholder="2026-10-07T09:00:00"
-                        placeholderTextColor={
-                          COLORS.textSecondary
-                        }
-                      />
+<Text style={styles.inputLabel}>
+  Start Time (Philippine Time)
+</Text>
+<TextInput
+  style={styles.eventInput}
+  value={editStartTime}
+  onChangeText={setEditStartTime}
+  editable={!savingEvent}
+  placeholder="2026-10-15T17:00:00"
+  placeholderTextColor={COLORS.textSecondary}
+/>
 
                       <Text style={styles.inputLabel}>
                         End Time
                       </Text>
 
-                      <TextInput
-                        style={styles.eventInput}
-                        value={editEndTime}
-                        onChangeText={setEditEndTime}
-                        editable={!savingEvent}
-                        placeholder="2026-10-07T10:00:00"
-                        placeholderTextColor={
-                          COLORS.textSecondary
-                        }
-                      />
+                     <TextInput
+  style={styles.eventInput}
+  value={editEndTime}
+  onChangeText={setEditEndTime}
+  editable={!savingEvent}
+  placeholder="2026-10-15T18:00:00"
+  placeholderTextColor={COLORS.textSecondary}
+/>
 
                       <Text style={styles.inputLabel}>
                         Venue

@@ -1,4 +1,4 @@
-package com.manijas.mm.QRATT
+package com.christinegomez.QRATT
 
 import android.app.Application
 import android.content.res.Configuration
